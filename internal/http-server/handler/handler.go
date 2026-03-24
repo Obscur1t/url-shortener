@@ -42,6 +42,7 @@ func (h *Handler) SaveURL(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.log.Error("handler error", slog.String("save url decode err", err.Error()))
 		response.ResponseErr(h.log, w, http.StatusBadRequest, "Invalid request format. Check the transmitted data")
+		return
 	}
 
 	alias, err := h.service.SaveUrl(r.Context(), request.URL)

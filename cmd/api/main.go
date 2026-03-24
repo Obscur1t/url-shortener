@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -47,12 +48,15 @@ func main() {
 	mux.HandleFunc("GET /url/{alias}", handler.RedirectURL)
 
 	server := http.Server{
-		Addr:    cfg.App.AppAddr,
-		Handler: mux,
+		Addr:         cfg.App.AppAddr,
+		Handler:      mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+		IdleTimeout:  5 * time.Second,
 	}
 
 	go func() {
-		if err := http.ListenAndServe(server.Addr, server.Handler); err != nil {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("failed to server", slog.String("Error", err.Error()))
 		}
 	}()

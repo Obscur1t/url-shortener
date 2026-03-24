@@ -33,7 +33,7 @@ func (s *Service) SaveUrl(ctx context.Context, url string) (string, error) {
 			return alias, nil
 		}
 		if errors.Is(err, storage.ErrAlreadyExists) {
-			s.log.Error("server error", slog.String("Collision occurred, save url err", err.Error()))
+			s.log.Warn("server error", slog.String("Collision occurred, save url err", err.Error()))
 			continue
 		}
 		if errors.Is(err, storage.ErrPostgres) {
