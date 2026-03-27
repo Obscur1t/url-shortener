@@ -11,21 +11,21 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type PgRepo struct {
+type UrlRepo struct {
 	pool *pgxpool.Pool
 	log  *slog.Logger
 }
 
-func New(pool *pgxpool.Pool, log *slog.Logger) *PgRepo {
-	return &PgRepo{
+func NewUrlRepo(pool *pgxpool.Pool, log *slog.Logger) *UrlRepo {
+	return &UrlRepo{
 		pool: pool,
 		log:  log,
 	}
 }
 
-func (r *PgRepo) SaveURL(ctx context.Context, url string, alias string) error {
-	query := "INSERT INTO urls(url, alias) VALUES($1, $2)"
-	_, err := r.pool.Exec(ctx, query, url, alias)
+func (r *UrlRepo) SaveURL(ctx context.Context, url string, alias string, userID int) error {
+	query := "INSERT INTO urls(url, alias, user_id) VALUES($1, $2, $3)"
+	_, err := r.pool.Exec(ctx, query, url, alias, userID)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
@@ -41,7 +41,7 @@ func (r *PgRepo) SaveURL(ctx context.Context, url string, alias string) error {
 	return nil
 }
 
-func (r *PgRepo) GetURL(ctx context.Context, alias string) (string, error) {
+func (r *UrlRepo) GetURL(ctx context.Context, alias string) (string, error) {
 	query := "SELECT url FROM urls WHERE alias=$1"
 	var url string
 	err := r.pool.QueryRow(ctx, query, alias).Scan(&url)
