@@ -1,15 +1,16 @@
-package service
+package url
 
 import (
 	"context"
 	"errors"
 	"log/slog"
 	"url-shortener/internal/lib/random"
+	"url-shortener/internal/service"
 	"url-shortener/internal/storage"
 )
 
 type PgStorage interface {
-	SaveURL(ctx context.Context, url string, alias string) error
+	SaveURL(ctx context.Context, url string, alias string, userID int) error
 	GetURL(ctx context.Context, alias string) (string, error)
 }
 
@@ -25,10 +26,10 @@ func New(pgStorage PgStorage, log *slog.Logger) *Service {
 	}
 }
 
-func (s *Service) SaveUrl(ctx context.Context, url string) (string, error) {
+func (s *Service) SaveURL(ctx context.Context, url string, userID int) (string, error) {
 	for i := 0; i < 10; i++ {
 		alias := random.NewRandomAlias(6)
-		err := s.pgStorage.SaveURL(ctx, url, alias)
+		err := s.pgStorage.SaveURL(ctx, url, alias, userID)
 		if err == nil {
 			return alias, nil
 		}
@@ -42,9 +43,9 @@ func (s *Service) SaveUrl(ctx context.Context, url string) (string, error) {
 		}
 	}
 	s.log.Error("service error", slog.String("save url", "attempts over"))
-	return "", ErrAttemptsOver
+	return "", service.ErrAttemptsOver
 }
 
-func (s *Service) GetUrl(ctx context.Context, alias string) (string, error) {
+func (s *Service) GetURL(ctx context.Context, alias string) (string, error) {
 	return s.pgStorage.GetURL(ctx, alias)
 }

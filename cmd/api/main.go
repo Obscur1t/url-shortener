@@ -11,11 +11,16 @@ import (
 	"syscall"
 	"time"
 	"url-shortener/internal/config"
-	"url-shortener/internal/http-server/handler"
+	"url-shortener/internal/http-server/handler/url"
+	"url-shortener/internal/http-server/handler/user"
 	"url-shortener/internal/infrastructure/postgres"
 	"url-shortener/internal/logger"
-	"url-shortener/internal/service"
-	pgRepo "url-shortener/internal/storage/postgres"
+	"url-shortener/internal/middleware/auth"
+	loggerMiddleware "url-shortener/internal/middleware/logger"
+	"url-shortener/internal/middleware/recovery"
+	urlsrv "url-shortener/internal/service/url"
+	usersrv "url-shortener/internal/service/user"
+	postgresRepo "url-shortener/internal/storage/postgres"
 )
 
 func main() {
@@ -38,18 +43,28 @@ func main() {
 	logger.Info("Database connection established")
 	logger.Info("Starting URL Shortener", slog.String("env", cfg.App.AppEnv))
 
-	pgRepo := pgRepo.New(pool, logger)
-	service := service.New(pgRepo, logger)
-	handler := handler.New(service, logger)
+	urlRepo := postgresRepo.NewUrlRepo(pool, logger)
+	userRepo := postgresRepo.NewUserRepo(pool, logger)
+
+	urlSrv := urlsrv.New(urlRepo, logger)
+	userSrv := usersrv.New(userRepo, logger, cfg.Auth.Secret, cfg.Auth.TokenTTL)
+
+	urlHand := url.New(urlSrv, logger)
+	userHand := user.New(userSrv, logger)
 
 	mux := http.NewServeMux()
+	router := recovery.RecoveryMiddleware(logger, loggerMiddleware.LoggerMiddleware(logger, mux))
 
-	mux.HandleFunc("POST /url", handler.SaveURL)
-	mux.HandleFunc("GET /url/{alias}", handler.RedirectURL)
+	authMw := auth.AuthMiddleware(logger, cfg.Auth.Secret)
+
+	mux.HandleFunc("POST /register", userHand.Register)
+	mux.HandleFunc("POST /login", userHand.Login)
+	mux.HandleFunc("GET /url/{alias}", urlHand.RedirectURL)
+	mux.Handle("POST /url", authMw(http.HandlerFunc(urlHand.SaveURL)))
 
 	server := http.Server{
 		Addr:         cfg.App.AppAddr,
-		Handler:      mux,
+		Handler:      router,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 5 * time.Second,
 		IdleTimeout:  5 * time.Second,
